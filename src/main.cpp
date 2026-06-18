@@ -27,61 +27,61 @@ int debg=0;
 float rad(float degree){
   return (degree * 71.0) / 4068.0;
 }
-void printEvent(sensors_event_t* event) {
+void printEvent(sensors_event_t* event, Stream* serial) {
 
   double x = -1000000, y = -1000000 , z = -1000000; //dumb values, easy to spot problem
   if (event->type == SENSOR_TYPE_ACCELEROMETER) {
-    Serial.print("Accl:");
+    serial->print("Accl:");
     x = event->acceleration.x;
     y = event->acceleration.y;
     z = event->acceleration.z;
   }
   else if (event->type == SENSOR_TYPE_ORIENTATION) {
-    Serial.print("Orient:");
+    serial->print("Orient:");
     x = event->orientation.x;
     y = event->orientation.y;
     z = event->orientation.z;
   }
   else if (event->type == SENSOR_TYPE_MAGNETIC_FIELD) {
-    Serial.print("Mag:");
+    serial->print("Mag:");
     x = event->magnetic.x;
     y = event->magnetic.y;
     z = event->magnetic.z;
   }
   else if (event->type == SENSOR_TYPE_GYROSCOPE) {
-    Serial.print("Gyro:");
+    serial->print("Gyro:");
     x = event->gyro.x;
     y = event->gyro.y;
     z = event->gyro.z;
   }
   else if (event->type == SENSOR_TYPE_ROTATION_VECTOR) {
-    Serial.print("Rot:");
+    serial->print("Rot:");
     x = event->gyro.x;
     y = event->gyro.y;
     z = event->gyro.z;
   }
   else if (event->type == SENSOR_TYPE_LINEAR_ACCELERATION) {
-    Serial.print("Linear:");
+    serial->print("Linear:");
     x = event->acceleration.x;
     y = event->acceleration.y;
     z = event->acceleration.z;
   }
   else if (event->type == SENSOR_TYPE_GRAVITY) {
-    Serial.print("Gravity:");
+    serial->print("Gravity:");
     x = event->acceleration.x;
     y = event->acceleration.y;
     z = event->acceleration.z;
   }
   else {
-    Serial.print("Unk:");
+    serial->print("Unk:");
   }
 
-  Serial.print("\tx= ");
-  Serial.print(x);
-  Serial.print(" |\ty= ");
-  Serial.print(y);
-  Serial.print(" |\tz= ");
-  Serial.println(z);
+  serial->print("\tx= ");
+  serial->print(x);
+  serial->print(" |\ty= ");
+  serial->print(y);
+  serial->print(" |\tz= ");
+  serial->println(z);
 }
 int cvt_wave_lengh_to_bit(int value,float frq){
 
@@ -267,7 +267,7 @@ void handleSerialRx(Stream &serialPort,Stream &serialPort_debug) {
     // Verify that the calculated checksum matches the checksum in the buffer
     if (checksum == receivedBytes[buff_read-1]) {
       newData = false;
-      //Serial.println("debbbb");
+      // Serial.println("debbbb");
       processBuffer((byte*)receivedBytes, serialPort_debug);
       // Reset the index
       receivedIndex = 0;
@@ -316,10 +316,14 @@ void setup() {
   pwm.setPWM(5, 0,cvt_wave_lengh_to_bit(middle,pwm_frequency));
   pwm.setPWM(6, 0,cvt_wave_lengh_to_bit(middle,pwm_frequency));
   pwm.setPWM(7, 0,cvt_wave_lengh_to_bit(middle,pwm_frequency));
+  pwm.setPWM(8, 0,cvt_wave_lengh_to_bit(middle,pwm_frequency));
+  pwm.setPWM(9, 0,cvt_wave_lengh_to_bit(middle,pwm_frequency));
 
-  Serial3.begin(9600);
-  // Serial3.attachCts(19);
-  // Serial3.attachRts(2);
+  // Serial.begin(115200);
+  Serial3.begin(115200);
+
+  Serial3.attachCts(19);
+  Serial3.attachRts(2);
 
   write_buff[0] = 0xDC; 
   write_buff[1] = 0xBA;
@@ -334,17 +338,17 @@ void loop() {
   bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
   bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
   bno.getEvent(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
-  // printEvent(&orientationData);
+  // printEvent(&orientationData, &Serial);
 
   sensor_temp[0] = orientationData.orientation.z;
   sensor_temp[1] = orientationData.orientation.y;
   sensor_temp[2] = orientationData.orientation.x;
 
-  // printEvent(&angVelocityData);
-  // printEvent(&linearAccelData);
-  // printEvent(&magnetometerData);
-  // printEvent(&accelerometerData);
-  // printEvent(&gravityData);
+  // printEvent(&angVelocityData, &Serial);
+  // printEvent(&linearAccelData, &Serial);
+  // printEvent(&magnetometerData, &Serial);
+  // printEvent(&accelerometerData, &Serial);
+  // printEvent(&gravityData, &Serial);
 
   // int8_t boardTemp = bno.getTemp();
   // Serial.println();
