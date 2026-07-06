@@ -2,10 +2,16 @@
 #include <Wire.h>
 #include <Adafruit_BNO055.h>
 #include <Adafruit_PWMServoDriver.h>
+#include "MS5837.h"
 
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28, &Wire1);
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
+MS5837 ms5837;
+
 volatile int sensor_temp[7] = {11, 22, 33, 44, 55,66,-77};
+                            // {RL, PH, YW, DS, WS, VS,  CS}0,0
+                            // RL, PH, YW CS -32767 to 32767
+                            // DS, WS, VS 0 to 255
 
 // Variables for PID speed control
 int Setpoint[10]; double Input[10]; double Output[10];
@@ -305,6 +311,15 @@ void setup() {
 
   pwm.begin();
 
+  
+  while (!ms5837.init(Wire1)) {
+    Serial.println("MS5837 not found on Wire1");
+    delay(1000);
+  }
+
+  ms5837.setModel(MS5837::MS5837_30BA); // Bar30
+  ms5837.setFluidDensity(997);          // fresh water
+
   pwm.setOscillatorFrequency(26000000);
   pwm.setPWMFreq(pwm_frequency);
 
@@ -430,8 +445,9 @@ void loop() {
   // Serial.print(" | ");
   // Serial.println(Motor.Motor8);
 
+  ms5837.read();
 
-  
+  sensor_temp[3] = ms5837.depth()*100; // Depth in cm
   //Serial.println(debg);
   // vTaskDelay(20);
   Stream* ports[] = { &Serial3};
