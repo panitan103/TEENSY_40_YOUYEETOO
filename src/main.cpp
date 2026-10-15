@@ -9,6 +9,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
 MS5837 ms5837;
 
 volatile int sensor_temp[7] = {11, 22, 33, 44, 55,66,-77};
+bool depth_ok = false; // true when the MS5837 answered on Wire1
                             // {RL, PH, YW, DS, WS, VS,  CS}0,0
                             // RL, PH, YW CS -32767 to 32767
                             // DS, WS, VS 0 to 255
@@ -312,13 +313,28 @@ void setup() {
   pwm.begin();
 
   
+  // REQUIRE_DEPTH_SENSOR 1 = original design: block in setup() until the Bar30
+  // answers on Wire1. 0 = boot without depth and report it as unavailable, so
+  // the serial stream and web stack come up regardless.
+#define REQUIRE_DEPTH_SENSOR 0
+#if REQUIRE_DEPTH_SENSOR
   while (!ms5837.init(Wire1)) {
     Serial.println("MS5837 not found on Wire1");
     delay(1000);
   }
-
-  ms5837.setModel(MS5837::MS5837_30BA); // Bar30
-  ms5837.setFluidDensity(997);          // fresh water
+  depth_ok = true;
+#else
+  depth_ok = ms5837.init(Wire1);
+  if (!depth_ok) {
+    Serial.println("MS5837 missing: continuing without depth");
+  }
+#endif
+  if (depth_ok) {
+    ms5837.setModel(MS5837::MS5837_30BA); // Bar30
+    ms5837.setFluidDensity(997);          // fresh water
+  } else {
+    Serial.println("MS5837 missing: continuing without depth");
+  }
 
   pwm.setOscillatorFrequency(26000000);
   pwm.setPWMFreq(pwm_frequency);
@@ -337,8 +353,14 @@ void setup() {
   // Serial.begin(115200);
   Serial3.begin(115200);
 
+  // Hardware flow control is unnecessary at these rates, and CTS on a floating
+  // pin can stall TX mid-byte, which the receiver sees as a break (0x00 byte).
+  // Set to 1 only if CTS/RTS are physically wired to the SBC.
+#define USE_SERIAL_FLOW_CONTROL 0
+#if USE_SERIAL_FLOW_CONTROL
   Serial3.attachCts(19);
   Serial3.attachRts(2);
+#endif
 
   write_buff[0] = 0xDC; 
   write_buff[1] = 0xBA;
@@ -445,9 +467,12 @@ void loop() {
   // Serial.print(" | ");
   // Serial.println(Motor.Motor8);
 
-  ms5837.read();
-
-  sensor_temp[3] = ms5837.depth()*100; // Depth in cm
+  if (depth_ok) {
+    ms5837.read();
+    sensor_temp[3] = ms5837.depth()*100; // Depth in cm
+  } else {
+    sensor_temp[3] = 0; // depth unavailable: keep the packet valid
+  }
   //Serial.println(debg);
   // vTaskDelay(20);
   Stream* ports[] = { &Serial3};
